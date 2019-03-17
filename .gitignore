@@ -1,0 +1,6 @@
+*/out
+*/node_modules
+*/.vscode-test/
+*.vsix
+tcl-client/node_modules
+tcl-server/node_modules
