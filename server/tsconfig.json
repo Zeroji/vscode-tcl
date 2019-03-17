@@ -1,18 +1,13 @@
 {
 	"compilerOptions": {
-		"module": "commonjs",
 		"target": "es6",
-		"outDir": "../tcl-client/server",
-		"lib": [
-			"es6"
-		],
+		"module": "commonjs",
+		"moduleResolution": "node",
 		"sourceMap": true,
+		"outDir": "out",
 		"rootDir": "src",
-		"strict": false,
-		"noUnusedLocals": false
+		"lib": ["es6"]
 	},
-	"exclude": [
-		"node_modules",
-		".vscode-test"
-	]
+	"include": ["src"],
+	"exclude": ["node_modules", ".vscode-test"]
 }
