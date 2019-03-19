@@ -36,12 +36,7 @@ connection.onInitialize((params): InitializeResult => {
         capabilities: {
             textDocumentSync: documents.syncKind,
             // Tell the client that the server supports symbols
-            documentSymbolProvider: true,
-            // Tell the client that the server supports code complete
-            completionProvider: {
-                resolveProvider: true,
-                triggerCharacters: [ '$' ]
-            }
+            documentSymbolProvider: true
         }
     };
 });
