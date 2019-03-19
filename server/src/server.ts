@@ -101,7 +101,7 @@ function parseSymbols(lines:string[]): DocumentSymbol[] {
     let symbol: DocumentSymbol = null;
     const singleLineSymbols: SymbolKind[] = [SymbolKind.Variable];
 
-    let procMatcher = /(proc\s+)(((?:::)?(?:\w+::)*\w+)\s+(?:\w+|\{\s*(?:\w+|\{\s*\w+\s+[^}]+\s*\})?(?:\s+\w+|\s+\{\s*\w+\s+[^}]+\s*\})*\s*\}))/;
+    let procMatcher = /(proc\s+)(((?:::)?(?:\w+::)*\w+)\s+(\w+|\{\s*(?:\w+|\{\s*\w+\s+[^}]+\s*\})?(?:\s+\w+|\s+\{\s*\w+\s+[^}]+\s*\})*\s*\}))/;
     let namespaceMatcher = /(namespace\s+eval\s+)(((?:::)?(?:\w+::)*\w+))/;
     let variableMatcher = /(variable\s+)(((?:::)?(?:\w+::)*\w+)\s+((?!")[^\s;]+|"(?:\\ [\\"]|[^\\"])*"))(?=\s*;|\s*$)/;
 
@@ -158,7 +158,7 @@ function parseSymbols(lines:string[]): DocumentSymbol[] {
         // [4] details
         if (match = procMatcher.exec(line)) {
             symbol = new DocumentSymbol();
-            symbol.detail = match[2];
+            symbol.detail = match[4];
             symbol.kind = SymbolKind.Function;
         } else if (match = namespaceMatcher.exec(line)) {
             symbol = new DocumentSymbol();
