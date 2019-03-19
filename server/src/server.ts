@@ -99,9 +99,11 @@ function countOccurrences(haystack: string, needle: string, position: number = 0
 function parseSymbols(lines:string[]): DocumentSymbol[] {
     let symbols: DocumentSymbol[] = [];
     let symbol: DocumentSymbol = null;
+    const singleLineSymbols: SymbolKind[] = [SymbolKind.Variable];
 
     let procMatcher = /(proc\s+)(((?:::)?(?:\w+::)*\w+)\s+(?:\w+|\{\s*(?:\w+|\{\s*\w+\s+[^}]+\s*\})?(?:\s+\w+|\s+\{\s*\w+\s+[^}]+\s*\})*\s*\}))/;
     let namespaceMatcher = /(namespace\s+eval\s+)(((?:::)?(?:\w+::)*\w+))/;
+    let variableMatcher = /(variable\s+)(((?:::)?(?:\w+::)*\w+)\s+((?!")[^\s;]+|"(?:\\ [\\"]|[^\\"])*"))(?=\s*;|\s*$)/;
 
     /// offset the bracket search in case we're still on first line
     let offsetIndex: number = 0;
@@ -156,19 +158,25 @@ function parseSymbols(lines:string[]): DocumentSymbol[] {
         // [4] details
         if (match = procMatcher.exec(line)) {
             symbol = new DocumentSymbol();
-            symbol.name = match[3];
             symbol.detail = match[2];
             symbol.kind = SymbolKind.Function;
         } else if (match = namespaceMatcher.exec(line)) {
             symbol = new DocumentSymbol();
-            symbol.name = match[3];
             symbol.kind = SymbolKind.Namespace;
+        } else if (match = variableMatcher.exec(line)) {
+            symbol = new DocumentSymbol();
+            symbol.detail = '= ' + match[4];
+            symbol.kind = SymbolKind.Variable;
         }
 
         if (match && symbol) {
+            let single: boolean = singleLineSymbols.indexOf(symbol.kind) > -1;
+
+            symbol.name = match[3];
             let index = match.index;
             let start = index + match[1].length;
             let end = start + match[3].length;
+            let matchEnd = index + match[0].length;
             symbol.range = {
                 start: {line: li, character: index},
                 end: {line: null, character: null}
@@ -177,10 +185,17 @@ function parseSymbols(lines:string[]): DocumentSymbol[] {
                 start: {line: li, character: start},
                 end: {line: li, character: end}
             };
-            offsetIndex = match.index + match[0].length;
-            foundFirstBracket = false;
-            bracketCount = 0;
-            li--;
+            if (single) {
+                symbol.range.end.line = li;
+                symbol.range.end.character = matchEnd;
+                symbols.push(symbol);
+                symbol = null;
+            } else {
+                offsetIndex = matchEnd;
+                foundFirstBracket = false;
+                bracketCount = 0;
+                li--;
+            }
         }
     }
     return symbols;
