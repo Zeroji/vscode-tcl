@@ -1,38 +1,36 @@
-# LSP Example
+# vscode-tcl
 
-Heavily documented sample code for https://code.visualstudio.com/api/language-extensions/language-server-extension-guide
+TCL language support for Visual Studio Code. **WIP.**
 
-## Functionality
+## Pull Requests welcome!
 
-This Language Server works for plain text file. It has the following language features:
-- Completions
-- Diagnostics regenerated on each file change or configuration change
+This is largely a work in progress, I am building it during my free time to
+help me at work - this means features may be lacking or underdeveloped.
 
-It also includes an End-to-End test.
+**All pull requests and issues are welcome.**
 
-## Structure
+### TCL Syntax Parsing
 
-```
-.
-├── client // Language Client
-│   ├── src
-│   │   ├── test // End to End tests for Language Client / Server
-│   │   └── extension.ts // Language Client entry point
-├── package.json // The extension manifest.
-└── server // Language Server
-    └── src
-        └── server.ts // Language Server entry point
-```
+As of now, regular expressions are being used. I have started to work with
+tools such as [nearley] and [moo], but all help is appreciated!
 
-## Running the Sample
+## Language server features
 
-- Run `npm install` in this folder. This installs all necessary npm modules in both the client and server folder
-- Open VS Code on this folder.
-- Press Ctrl+Shift+B to compile the client and server.
-- Switch to the Debug viewlet.
-- Select `Launch Client` from the drop down.
-- Run the launch config.
-- If you want to debug the server as well use the launch configuration `Attach to Server`
-- In the [Extension Development Host] instance of VSCode, open a document in 'plain text' language mode.
-  - Type `j` or `t` to see `Javascript` and `TypeScript` completion.
-  - Enter text content such as `AAA aaa BBB`. The extension will emit diagnostics for all words in all-uppercase.
+This is mainly based on the [lsp-sample] project, and adapted to work with
+TCL files. A few features are currently available:
+
+### Document Symbols
+
+Namespaces and procedures will be recognized as symbols, and shown in the
+Outline view and in Breadcrumbs. Nested symbols work properly, but due to
+the fragile parsing (currently using RegExp instead of a proper grammar),
+closing braces (`}`) too close to one another might cause errors.
+
+[nearley]: https://nearley.js.org/
+[moo]: https://github.com/no-context/moo
+[lsp-sample]: https://github.com/Microsoft/vscode-extension-samples/tree/master/lsp-sample
+
+### Syntax highlighting *not included*
+
+Please use another extension (such as <https://github.com/rashwell/tcl>)
+to add syntax highlighting and snippets, and adding the `tcl` language.
