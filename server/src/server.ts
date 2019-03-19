@@ -6,7 +6,7 @@ import {
     TextDocuments, TextDocument, Diagnostic, DiagnosticSeverity,
     InitializeParams, InitializeResult, TextDocumentPositionParams,
     CompletionItem, CompletionItemKind,
-    Hover, Files
+    Hover, Files, DocumentSymbol, DocumentSymbolParams, SymbolKind
 } from 'vscode-languageserver';
 
 import * as fs from 'fs';
@@ -34,14 +34,14 @@ connection.onInitialize((params): InitializeResult => {
 
     return {
         capabilities: {
-            // Tell the client that the server works in FULL text document sync mode
             textDocumentSync: documents.syncKind,
+            // Tell the client that the server supports symbols
+            documentSymbolProvider: true,
             // Tell the client that the server supports code complete
             completionProvider: {
                 resolveProvider: true,
-                "triggerCharacters": [ '$' ]
-            },
-            hoverProvider: true
+                triggerCharacters: [ '$' ]
+            }
         }
     };
 });
@@ -75,4 +75,131 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
     }
 
     return item;
+});
+
+function shiftRanges(symbols: DocumentSymbol[], offset: number): DocumentSymbol[] {
+    symbols.forEach(symbol => {
+        symbol.selectionRange.start.line += offset;
+        symbol.selectionRange.end.line   += offset;
+        symbol.range.start.line          += offset;
+        symbol.range.end.line            += offset;
+        if (symbol.children)
+            shiftRanges(symbol.children, offset);
+    });
+    return symbols;
+}
+
+function countOccurrences(haystack: string, needle: string, position: number = 0): number {
+    let count: number = 0;
+    while(true) {
+        let next = haystack.indexOf(needle, position);
+        if (next < 0)
+            break;
+        count++;
+        position = next+1;
+    }
+    return count;
+}
+
+function parseSymbols(lines:string[]): DocumentSymbol[] {
+    let symbols: DocumentSymbol[] = [];
+    let symbol: DocumentSymbol = null;
+
+    let procMatcher = /(proc\s+)(((?:::)?(?:\w+::)*\w+)\s+(?:\w+|\{\s*(?:\w+|\{\s*\w+\s+[^}]+\s*\})?(?:\s+\w+|\s+\{\s*\w+\s+[^}]+\s*\})*\s*\}))/;
+    let namespaceMatcher = /(namespace\s+eval\s+)(((?:::)?(?:\w+::)*\w+))/;
+
+    /// offset the bracket search in case we're still on first line
+    let offsetIndex: number = 0;
+    /// whether the opening bracket has been parsed yet
+    let foundFirstBracket: boolean;
+    /// total number of unclosed brackets found
+    let bracketCount: number;
+    /// index of last closing bracket in line
+    let indexOfLastClose: number;
+
+    for (let li = 0; li < lines.length; li++) {
+        const line: string = lines[li];
+
+        if (symbol != null) {
+            // keep parsing until end of current symbol
+            if (!foundFirstBracket || bracketCount > 0) {
+                let opened = countOccurrences(line, '{', offsetIndex);
+                let closed = countOccurrences(line, '}', offsetIndex);
+                if (opened > 0 && !foundFirstBracket)
+                    foundFirstBracket = true;
+                if (closed > 0)
+                    indexOfLastClose = line.lastIndexOf('}');
+                bracketCount += (opened - closed);
+                offsetIndex = 0;
+            }
+            // close and push symbol
+            if (foundFirstBracket && bracketCount <= 0) {
+                symbol.range.end.line = li;
+                symbol.range.end.character = indexOfLastClose + 1;
+
+                // parse children, fix their ranges and add them
+                let children: DocumentSymbol[] = parseSymbols(lines.slice(
+                    symbol.range.start.line + 1, symbol.range.end.line
+                ));
+                shiftRanges(children, symbol.range.start.line + 1);
+                symbol.children = children;
+
+                symbols.push(symbol);
+                symbol = null;
+                continue;
+            }
+            if (symbol)
+                continue;
+        }
+
+        // try to find symbols
+        let match: RegExpMatchArray;
+        // common match elements:
+        // [1] declaration keyword and whitespace
+        // [2] full name
+        // [3] short name
+        // [4] details
+        if (match = procMatcher.exec(line)) {
+            symbol = new DocumentSymbol();
+            symbol.name = match[3];
+            symbol.detail = match[2];
+            symbol.kind = SymbolKind.Function;
+        } else if (match = namespaceMatcher.exec(line)) {
+            symbol = new DocumentSymbol();
+            symbol.name = match[3];
+            symbol.kind = SymbolKind.Namespace;
+        }
+
+        if (match && symbol) {
+            let index = match.index;
+            let start = index + match[1].length;
+            let end = start + match[3].length;
+            symbol.range = {
+                start: {line: li, character: index},
+                end: {line: null, character: null}
+            };
+            symbol.selectionRange = {
+                start: {line: li, character: start},
+                end: {line: li, character: end}
+            };
+            offsetIndex = match.index + match[0].length;
+            foundFirstBracket = false;
+            bracketCount = 0;
+            li--;
+        }
+    }
+    return symbols;
+}
+
+connection.onDocumentSymbol((documentSymbol: DocumentSymbolParams): DocumentSymbol[] => {
+    let text = documents.get(documentSymbol.textDocument.uri).getText();
+    let lines = text.split(/\r?\n/);
+    let symbols: DocumentSymbol[];
+
+    symbols = parseSymbols(lines);
+
+    console.log("Found", symbols.length, "symbols!");
+    console.log(symbols);
+    
+    return symbols;
 });
